@@ -1,11 +1,12 @@
 const express = require('express');
 const graphQlHttp = require('express-graphql');
-
+const mongoose = require('mongoose');
 const { buildSchema } = require('graphql');
+
+const Event = require('./models/event');
 
 const app = express();
 
-const events = []
 app.use(express.json());
 
 app.use('/graphql', graphQlHttp({
@@ -40,21 +41,42 @@ app.use('/graphql', graphQlHttp({
     `),
     rootValue: {
         events : () => {
-            return events;  
+           return Event.find().then(events => {
+                
+                return events.map(event => {
+                    return { ...event._doc }
+                })
+            }).catch(err => console.log(err));  
         },
         createEvent: (args) => {
-            const event = {
-                _id : Math.random().toString(),
+            // const event = {
+            //     _id : Math.random().toString(),
+            //     title: args.eventInput.title,
+            //     description: args.eventInput.description,
+            //     price: +args.eventInput.price,
+            //     date: new Date().toISOString()
+            // }
+            const event = new Event({
                 title: args.eventInput.title,
                 description: args.eventInput.description,
                 price: +args.eventInput.price,
-                date: new Date().toISOString()
-            }
-            events.push(event)
-            return event;
+                date: new Date(args.eventInput.date)
+            });
+
+            return event.save().then(dt => {
+                console.log(dt)
+                return { ...dt._doc };
+            }).catch(err => {
+                console.log(err)
+                throw err;
+            });            
         }
     },
     graphiql: true
-}))
+}));
 
-app.listen(3000, () => console.log('App up n working on port 3000'))
+mongoose.connect('mongodb://localhost:27017/graphql', {useNewUrlParser:true})
+    .then(() => {
+        app.listen(3000, () => console.log('App up n working on port 3000'))
+    })
+    .catch(err => console.log('DB Connection Error',err))
